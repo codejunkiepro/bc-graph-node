@@ -17,6 +17,14 @@ colors.enable();
 
 app.use(express.static(__dirname + '/public'))
 
+app.get('/', (req, res) => {
+    res.send('No shop provide');
+})
+
+app.get('/bc-graph', async (req, res) => {
+    res.sendFile(path.join(__dirname, '/public/bc-graph.html'))
+})
+
 const error = chalk.red;
 const warning = chalk.bgRed.yellow;
 const good = chalk.bgCyan.black;
@@ -65,6 +73,8 @@ async function createModel() {
     model.add(tf.layers.dense({ units: 1, activation: 'linear' }));
     return model;
 }
+
+
 
 async function trainModel(model, trainingData, trainingLabels) {
     model.compile({ loss: 'meanSquaredError', optimizer: 'sgd' });
