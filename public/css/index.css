@@ -1,0 +1,260 @@
+.line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 1.5;
+}
+
+.line.avg {
+  stroke: #fff7e1;
+}
+
+.line.data-line {
+  stroke: #001a8b;
+  stroke-width: 1;
+}
+
+.line.sma-long-line {
+  stroke: #8bc34a;
+}
+
+.line.sma-short-line {
+  stroke: #a2cf6e;
+}
+
+.line.ema-long-line {
+  stroke: #d3e7d4;
+}
+
+.line.ema-short-line {
+  stroke: #bbf3bd;
+}
+
+.line.base-line {
+  fill: none;
+  stroke: #ffeaa4;
+  stroke-width: 1.5;
+}
+
+.overlay {
+  fill: none;
+  pointer-events: all;
+}
+
+/* Style the dots by assigning a fill and stroke */
+
+.dot {
+  fill: #001a8b;
+  stroke: #fff;
+}
+
+.focus circle {
+  fill: none;
+  stroke: steelblue;
+}
+
+.is-first {
+  background-color: rgba(195, 111, 24, 0.2);
+}
+
+.is-over-median {
+  color: #44B39D;
+}
+
+.is-under-median {
+  color: #BF4A67;
+}
+
+.mt-10 {
+  margin-top: 10px;
+}
+
+#game_verify_submit {
+  width: 120px;
+}
+
+.salt-input {
+  position: relative;
+}
+
+.salt-change-button-group {
+  display: flex;
+  gap: 2px;
+}
+
+.salt-change-button-group button {
+  height: 40px;
+}
+
+.seq-red-text {
+  color: red;
+  font-weight: bold;
+}
+
+#ethercrash_user_rounds {
+  width: 100%;
+  position: relative;
+  top: -110px
+}
+
+#visits {
+  background-color: #a2cf6e;
+  border-radius: 8px;
+  padding: 0 5px;
+}
+
+#hash-seed {
+  width: 605px;
+}
+
+.salt-input {
+  width: 605px;
+}
+
+.inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.range-analysis {
+  display: flex;
+  gap: 20px;
+}
+
+.dot-map {
+  padding-top: 0;
+  padding: 1em;
+  color: rgb(152, 167, 181);
+  background-color: rgb(23, 24, 27);
+}
+
+.dots-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  text-size-adjust: 100%;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.dots {
+  width: 1600px;
+  display: grid;
+  gap: 1px;
+  margin-bottom: 4px;
+}
+
+.cell-dot {
+  background-color: rgb(45, 48, 53);
+  border-radius: 5px;
+  position: relative;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.cell-dot.type-1::after {
+  background-color: #ed6300;
+}
+
+.cell-dot.type-2::after {
+  background-color: green;
+}
+
+.cell-dot.type-3::after {
+  background-color: #f6c722;
+}
+
+.cell-value.type-1 {
+  color: white;
+  border-color: #ed6300;
+  background-color: #ed6300;
+}
+
+.cell-value.type-2 {
+  color: white;
+  border-color: green;
+  background-color: green;
+}
+
+.cell-value.type-3 {
+  color: #12910b;
+  border-color: #f6c722;
+  background-color: #f6c722;
+}
+
+.cell-value.type-H {
+  color: #e77c09;
+  border-color: yellow;
+  background-color: #f6c722;
+}
+
+.cell-value.type-Z {
+  background-color: #ed6300;
+  border-color: red;
+  color: #d30101;
+}
+
+.cell-value {
+  padding: 1px;
+  border: 2px solid;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.value-map {
+  display: flex;
+  -webkit-box-align: center;
+  align-items: center;
+  overflow: hidden;
+  -webkit-box-pack: end;
+  justify-content: flex-end;
+  margin: 0;
+  position: relative;
+  gap: 2px;
+  background-color: rgb(45, 48, 53);
+  padding: 5px 3px;
+}
+
+.cell-dot::before {
+  content: "";
+  display: block;
+  padding-top: 100%;
+}
+
+.cell-dot::after {
+  content: "";
+  position: absolute;
+  left: 15%;
+  top: 15%;
+  width: 70%;
+  height: 70%;
+  border-radius: 50%;
+}
+
+.chart {
+  background-color: rgb(45, 48, 53);
+  border: 2px solid rgb(23, 24, 27);
+}
+
+.section {
+  padding: 3rem 3rem;
+  padding-top: 3rem;
+  padding-right: 4px;
+  padding-bottom: 3rem;
+  padding-left: 8px;
+}
+
+::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+    background-color: transparent;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-button {
+    display: none;
+}
+::-webkit-scrollbar-thumb {
+    background-color: rgb(45, 48, 53);
+    transition: all .5s;
+    border-radius: 4px;
+}

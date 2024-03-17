@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>BC Games Analyzer</title>
+
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width" />
+  <meta name="description"
+    content="Useful blockchain games hash analyzer. You can use this analyzer for games like BC.Game, Bustabit, Ethercrash, etc..." />
+  <meta property="og:image:width" content="960" />
+  <meta property="og:image:height" content="585" />
+  <meta property="og:title" content="BC Graph" />
+  <meta property="og:site_name" content="BC Graph" />
+  <meta property="og:description"
+    content="Useful blockchain games hash analyzer developed. You can use this analyzer for games like BC.Game, Bustabit, Ethercrash, etc..." />
+  <meta property="og:image" content="img/bc-graph.png" />
+  <!-- Schema.org markup for Google+ -->
+  <meta itemprop="name" content="BC Graph" />
+  <meta itemprop="description"
+    content="Useful blockchain games hash analyzer developed. You can use this analyzer for games like BC.Game, Bustabit, Ethercrash, etc..." />
+  <meta itemprop="image" content="img/bc-graph.png" />
+  <!-- Twitter Card data -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@alberteichberg" />
+  <meta name="twitter:title" content="BC Graph" />
+  <meta name="twitter:description"
+    content="Useful blockchain games hash analyzer developed. You can use this analyzer for games like BC.Game, Bustabit, Ethercrash, etc..." />
+  <meta name="twitter:image:src" content="img/bc-graph.png" />
+  <meta name="author" content="Albert Eichberg" />
+
+  <link rel="stylesheet" type="text/css" href="./css/bulma.min.css" />
+  <link rel="stylesheet" type="text/css" href="./css/font-awesome.min.css" />
+  <link rel="stylesheet" href="./css/index.css" />
+
+  <script type="text/javascript" src="./js/jquery.js"></script>
+  <script type="text/javascript" src="./js/crypto-js.min.js"></script>
+
+  <script src="./js/socket.io.js"></script>
+  <script src="./js/chart.js"></script>
+
+  <link href="./js/toastr/toastr.min.css" rel="stylesheet">
+  <script src="./js/toastr/toastr.min.js"></script>
+
+</head>
+
+<body>
+  <section class="section">
+    <div class="box">
+      <div class="inputs">
+        <div class="field" id="hash-seed">
+          <p class="control has-icons-left">
+            <input class="input" type="text" id="game_hash_input" placeholder="Game's hash (SHA256)"
+              value="192606786d16c841a81e193d5ba7c4835cdbc406d71a6da4a47de5aca9a6d26d" />
+            <span class="icon is-small is-left">
+              <i class="fa fa-key"></i>
+            </span>
+          </p>
+        </div>
+        <div class="field salt-input">
+          <p class="control has-icons-left">
+            <span class="icon is-small is-left">
+              <i class="fa fa-filter"></i>
+            </span>
+            <input class="input" type="text" id="game_salt_input" placeholder="Salt"
+              value="0000000000000000000301e2801a9a9598bfb114e574a91a887f2132f33047e6" />
+          </p>
+        </div>
+        <div class="field salt-select">
+          <div class="salt-change-button-group">
+            <!-- <button id="bustabit_salt_button">
+              bustabit.com
+            </button>
+            <button id="ethercrash_salt_button">
+              ethercrash.io
+            </button> -->
+            <button id="bcgame_salt_button">
+              Reset
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="box">
+      <div class="inputs">
+        <div class="field ml-5">
+          <p>Std</p>
+          <p class="control has-icons-left">
+            <input class="input" type="number" id="game_red_thresold_input" min="1" max="1000" step="0.1"
+              placeholder="Red Thresold" value="2.0" />
+            <span class="icon is-small is-left">
+              <i class="fa fa-hashtag"></i>
+            </span>
+          </p>
+        </div>
+        <div class="field ml-5">
+          <p>Ymin</p>
+          <p class="control has-icons-left">
+            <input class="input" type="number" id="game_low_input" min="0" max="1000" step="0.1"
+              placeholder="Y min value" value="0" />
+            <span class="icon is-small is-left">
+              <i class="fa fa-hashtag"></i>
+            </span>
+          </p>
+        </div>
+        <div class="field ml-5">
+          <p>Ymax</p>
+          <p class="control has-icons-left">
+            <input class="input" type="number" id="game_high_input" min="1" max="1000" step="0.1"
+              placeholder="Y max value" value="50" />
+            <span class="icon is-small is-left">
+              <i class="fa fa-hashtag"></i>
+            </span>
+          </p>
+        </div>
+        <div class="field ml-5">
+          <p>Trows</p>
+          <p class="control has-icons-left">
+            <input class="input" type="number" id="game_table_rows_input" min="1" max="1000" step="1"
+              placeholder="Table rows" value="50" />
+            <span class="icon is-small is-left">
+              <i class="fa fa-hashtag"></i>
+            </span>
+          </p>
+        </div>
+        <div class="field ml-5">
+          <p>Csize</p>
+          <p class="control has-icons-left">
+            <input class="input" type="number" id="game_chart_size_input" min="1" max="1000" step="1"
+              placeholder="Chart size" value="50" />
+            <span class="icon is-small is-left">
+              <i class="fa fa-hashtag"></i>
+            </span>
+          </p>
+        </div>
+        <div class="field ml-5">
+          <p>BC dot map height</p>
+          <p class="control has-icons-left">
+            <input class="input" type="number" id="game_dotmap_height_input" min="6" max="100" step="1"
+              placeholder="BC dot map height" value="6" />
+            <span class="icon is-small is-left">
+              <i class="fa fa-hashtag"></i>
+            </span>
+          </p>
+        </div>
+        <div class="field ml-5">
+          <p>Payouts to analysis</p>
+          <p class="control has-icons-left">
+            <input class="input" type="text" id="game_analysis_input" placeholder="2, 5, 10, 20, 50, 100"
+              value="1.5, 2, 10, 100" />
+            <span class="icon is-small is-left">
+              <i class="fa fa-hashtag"></i>
+            </span>
+          </p>
+        </div>
+        <div class="field ml-5">
+          <p>Ranges to analysis</p>
+          <p class="control has-icons-left">
+            <input class="input" type="text" id="game_analysis_range_input"
+              placeholder="10, 20, 30, 40, 50, 100, 200, 500, 1000" value="10, 20, 30, 40, 50, 100, 200, 500, 1000" />
+            <span class="icon is-small is-left">
+              <i class="fa fa-hashtag"></i>
+            </span>
+          </p>
+        </div>
+        <p class="control">
+          <a class="button is-primary" id="game_analysis_submit"> Analysis </a>
+        </p>
+        <div class="field ml-5">
+          <p class="control has-icons-left">
+            <select id="game_chart_type_input">
+              <option value="bar">bar</option>
+              <option value="line">line</option>
+              <option value="doughnut">doughnut</option>
+              <option value="pie">pie</option>
+              <option value="radar">radar</option>
+            </select>
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="box">
+      <div class="inputs">
+        <div class="field has-addons">
+          <div class="field has-addons">
+            <p class="control has-icons-left">
+              <input class="input" type="number" id="game_amount_input" min="1" max="100000" step="1"
+                placeholder="Amount of games" value="50" />
+              <span class="icon is-small is-left">
+                <i class="fa fa-hashtag"></i>
+              </span>
+            </p>
+            <div class="control">
+              <a class="button is-secondary" id="chart_minus_100_submit"> -100 </a>
+            </div>
+            <div class="control">
+              <a class="button is-secondary" id="chart_minus_10_submit"> -10 </a>
+            </div>
+            <div class="control">
+              <a class="button is-secondary" id="chart_minus_1_submit"> -1 </a>
+            </div>
+            <div class="control">
+              <a class="button is-secondary" id="chart_reset_submit"> 100 </a>
+            </div>
+            <div class="control">
+              <a class="button is-secondary" id="chart_plus_1_submit"> +1 </a>
+            </div>
+            <div class="control">
+              <a class="button is-secondary" id="chart_plus_10_submit"> +10 </a>
+            </div>
+            <div class="control">
+              <a class="button is-secondary" id="chart_plus_100_submit"> +100 </a>
+            </div>
+          </div>
+        </div>
+        <p class="control">
+          <a class="button is-primary" id="game_verify_submit"> Verify </a>
+        </p>
+      </div>
+    </div>
+    <div class="">
+      <br />
+      <div class="tabs" id="tabs">
+        <ul>
+          <li>
+            <a>
+              <span class="icon is-small"><i class="fa fa-table" aria-hidden="true"></i></span>
+              <span>Table</span>
+            </a>
+          </li>
+          <li class="is-active">
+            <a>
+              <span class="icon is-small"><i class="fa fa-line-chart" aria-hidden="true"></i></span>
+              <span>All Rounds</span>
+            </a>
+          </li>
+          <li class="is-hidden" id="user_rounds_tab">
+            <a>
+              <span class="icon is-small"><i class="fa fa-line-chart" aria-hidden="true"></i></span>
+              <span>User Rounds</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+      <div id="tabs-content">
+        <div class="is-hidden">
+          <div style="overflow-y: scroll; max-height: 500px">
+            <table class="table is-striped is-fullwidth is-hoverable is-narrow">
+              <thead>
+                <tr>
+                  <th><b>Game's hash</b></th>
+                  <th><b>Bust</b></th>
+                </tr>
+              </thead>
+              <tbody id="game_verify_table"></tbody>
+            </table>
+          </div>
+          <label class="seq-red-text">Max Red Sequence Count: <span
+              id="game_max_red_sequence_count_in_table">0</span></label>
+        </div>
+        <div>
+          <div class="value-map">
+          </div>
+          <div class="dot-map">
+            <div class="dots-wrap" id="dots-wrap">
+              <div class="dots">
+              </div>
+            </div>
+          </div>
+          <div class="chart">
+            <canvas id="chartjs_container" width="2000" height="300"></canvas>
+          </div>
+          <div class="chart">
+            <canvas id="chartjs_container1" width="2000" height="200"></canvas>
+          </div>
+          <div class="">
+            <div class="is-one-fifth">
+              <h4 class="title is-4" style="margin-bottom: 4px;">Range Analysis</h4>
+              <div class="range-analysis"></div>
+              <label class="seq-red-text">Max Red Sequence Count: <span
+                  id="game_max_red_sequence_count_in_chart">0</span></label>
+            </div>
+          </div>
+        </div>
+        <!-- <div class="is-hidden is-clipped" style="height: 790px">
+          <iframe id="ethercrash_user_rounds" src="https://www.ethercrash.io/user/top73" width="1000" height="900"
+            title="User Rounds Graph" scrolling="no" frameborder="0" allowfullscreen="false" mozallowfullscreen="false"
+            webkitallowfullscreen="false"></iframe>
+        </div> -->
+      </div>
+      <label id="game_info" class="has-text-weight-medium"></label>
+    </div>
+    <div>
+      <label>※ Use of this page is optional and players must take full responsibility for any attendant risks. We will
+        not be held liable in this regard.</label>
+      <hr />
+      <div class="columns">
+        <div class="column">
+          <p><b>Utilities</b></p>
+          <ul>
+            <li>
+              <a href="https://github.com/azvast/bc.game-graph">https://github.com/azvast/bc.game-graph</a>
+            </li>
+            <li>
+              <a href="https://github.com/azvast/bcgame-analyzer-extension">bc.game-analyzer-extension</a>
+            </li>
+            <li>
+              <a href="https://github.com/azvast/ethercrash-analyzer-extension">ethercrash-analyzer-extension</a>
+            </li>
+          </ul>
+        </div>
+        <div class="column">
+          <p><b>Simulator</b></p>
+          <ul>
+            <li>
+              <a href="https://azvast.github.io/ethercrash-script-simulator/">EtherCrash.io Script Simulator</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="./js/index.js"></script>
+</body>
+
+</html>

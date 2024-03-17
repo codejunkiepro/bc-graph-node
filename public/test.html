@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+</head>
+<script>
+    function init() {
+        document.getElementById("red-bear-bet").value = 0;
+        document.getElementById("red-bear-win").value = 0;
+        document.getElementById("green-bull-bet").value = 0;
+        document.getElementById("green-bull-win").value = 0;
+    }
+    function bet(id) {
+        document.getElementById(`${id}-bet`).value++;
+    }
+    function win(id) {
+        document.getElementById(`${id}-win`).value++;
+    }
+</script>
+<body>
+    <div>
+        <input type="number">
+    </div>
+    <div style="display: flex;gap: 20px">
+        <div>
+            red-bear
+            <input type="number" id="red-bear-bet" value="0">
+            <input type="number" id="red-bear-win" value="0">
+            <div>
+                <button onclick="bet('red-bear')">bet</button>
+                <button onclick="win('red-bear')">win</button>
+            </div>
+        </div>
+        <div>
+            green-bull
+            <input type="number" id="green-bull-bet" value="0">
+            <input type="number" id="green-bull-win" value="0">
+            <div>
+                <button onclick="bet('green-bull')">bet</button>
+                <button onclick="win('green-bull')">win</button>
+            </div>
+        </div>
+
+    </div>
+    <div>
+        <button onclick="init()">init</button>
+    </div>
+</body>
+</html>
