@@ -803,7 +803,7 @@ function drawChart2() {
           if (ctx.raw < 0) {
             return 'red';
           }
-          if(ctx.raw < 30) {
+          if(ctx.raw > -30) {
             return 'yellow'
           }
           return 'green';
@@ -831,7 +831,7 @@ function drawChart2() {
         },
         y: {
           beginAtZero: true,
-          max: maxDataN,
+          max: 30,
           min: minDataN,
           ticks: {
             callback: function (value, index, ticks) {
