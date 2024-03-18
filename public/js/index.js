@@ -829,7 +829,7 @@ function drawChart2() {
         y: {
           beginAtZero: true,
           max: maxDataN,
-          min: minDataN,
+          min: 30,
           ticks: {
             callback: function (value, index, ticks) {
               return Math.abs(value);
