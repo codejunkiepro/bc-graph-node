@@ -812,7 +812,8 @@ function drawChart2() {
           if(ctx.raw < -30) {
             return 'yellow'
           }
-        }
+        },
+        borderWidth: 2
       },
     ],
   };
