@@ -800,14 +800,19 @@ function drawChart2() {
         label: '',
         data: dataN1.map((d) => d.count),
         backgroundColor: (ctx) => {
-          if(ctx.raw < -30) {
-            return 'yellow'
-          }
+          // if(ctx.raw < -30) {
+          //   return 'yellow'
+          // }
           if (ctx.raw < 0) {
             return 'red';
           }
           return 'green';
         },
+        borderColor: (ctx) => {
+          if(ctx.raw < -30) {
+            return 'yellow'
+          }
+        }
       },
     ],
   };
