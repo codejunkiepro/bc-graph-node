@@ -39,6 +39,7 @@
 
   <script src="./js/socket.io.js"></script>
   <script src="./js/chart.js"></script>
+  <script src="./js/MChart.js"></script>
 
   <link href="./js/toastr/toastr.min.css" rel="stylesheet">
   <script src="./js/toastr/toastr.min.js"></script>
@@ -87,8 +88,18 @@
         <div class="field ml-5">
           <p>Std</p>
           <p class="control has-icons-left">
-            <input class="input" type="number" id="game_red_thresold_input" min="1" max="1000" step="0.1"
+            <input class="input" type="number" id="game_red_thresold_input" min="1" max="100000" step="0.1"
               placeholder="Red Thresold" value="2.0" />
+            <span class="icon is-small is-left">
+              <i class="fa fa-hashtag"></i>
+            </span>
+          </p>
+        </div>
+        <div class="field ml-5">
+          <p>Std</p>
+          <p class="control has-icons-left">
+            <input class="input" type="number" id="game_red_thresold_input_1" min="1" max="100000" step="0.1"
+              placeholder="Red Thresold" value="10.0" />
             <span class="icon is-small is-left">
               <i class="fa fa-hashtag"></i>
             </span>
@@ -134,6 +145,10 @@
             </span>
           </p>
         </div>
+      </div>
+    </div>
+    <div class="box">
+      <div class="inputs">
         <div class="field ml-5">
           <p>BC dot map height</p>
           <p class="control has-icons-left">
@@ -153,6 +168,7 @@
               <i class="fa fa-hashtag"></i>
             </span>
           </p>
+          <input type="checkbox" id="game_analysis_graph" />
         </div>
         <div class="field ml-5">
           <p>Ranges to analysis</p>
@@ -164,9 +180,22 @@
             </span>
           </p>
         </div>
-        <p class="control">
-          <a class="button is-primary" id="game_analysis_submit"> Analysis </a>
-        </p>
+        <div class="field ml-5">
+          <p>Payout and appear indexes(payout,count)</p>
+          <p class="control has-icons-left">
+            <input class="input" type="text" id="game_analysis_payout_appear_indexes" placeholder="10, 220"
+              value="10, 220" />
+            <span class="icon is-small is-left">
+              <i class="fa fa-hashtag"></i>
+            </span>
+          </p>
+        </div>
+        <div class="field ml-5">
+          <p></p>
+          <p class="control">
+            <a class="button is-primary" id="game_analysis_submit"> Analysis </a>
+          </p>
+        </div>
         <div class="field ml-5">
           <p class="control has-icons-left">
             <select id="game_chart_type_input">
@@ -260,6 +289,7 @@
               id="game_max_red_sequence_count_in_table">0</span></label>
         </div>
         <div>
+          <div class="payout-appears"></div>
           <div class="value-map">
           </div>
           <div class="dot-map">
@@ -273,6 +303,9 @@
           </div>
           <div class="chart">
             <canvas id="chartjs_container1" width="2000" height="200"></canvas>
+          </div>
+          <div class="chart">
+            <canvas id="chartjs_container_m" width="2000" height="500"></canvas>
           </div>
           <div class="">
             <div class="is-one-fifth">

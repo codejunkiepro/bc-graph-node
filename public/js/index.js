@@ -1,36 +1,45 @@
+// const { op } = require("@tensorflow/tfjs");
+
 var userId = '';
 var analysisArray = [1.5, 2, 10, 100];
 var analysisRanges = [10, 20, 30, 40, 50, 100, 200, 500, 1000];
+var analysisPayoutAppear = [10, 220];
 var gHash = localStorage.getItem('bc.game.crash.analysis.hashvalue');
 let load_game_hash_input = localStorage.getItem('bc.game.crash.analysis.hashvalue');
 let load_game_amount_input = localStorage.getItem('bc.game.crash.analysis.gameamount');
 let load_game_red_thresold_input = localStorage.getItem('bc.game.crash.analysis.red');
+let load_game_red_thresold_input_1 = localStorage.getItem('bc.game.crash.analysis.red1');
 let load_game_high_input = localStorage.getItem('bc.game.crash.analysis.high');
 let load_game_low_input = localStorage.getItem('bc.game.crash.analysis.low');
 let load_game_table_rows_input = localStorage.getItem('bc.game.crash.analysis.tablerows');
 let load_game_chart_size_input = localStorage.getItem('bc.game.crash.analysis.chartsize');
 let load_game_analysis_input = localStorage.getItem('bc.game.crash.analysis.array');
 let load_game_analysis_range_input = localStorage.getItem('bc.game.crash.analysis.range');
+let load_game_analysis_payout_appear_indexes = localStorage.getItem('bc.game.crash.analysis.payout.appear.indexes');
 let load_game_dotmap_height_input = localStorage.getItem('bc.game.crash.dotmap.height');
 // load_game_hash_input = load_game_hash_input?load_game_hash_input:;
 load_game_dotmap_height_input = load_game_dotmap_height_input ? load_game_dotmap_height_input : 6;
 load_game_amount_input = load_game_amount_input ? load_game_amount_input : 100;
 load_game_red_thresold_input = load_game_red_thresold_input ? load_game_red_thresold_input : 2;
+load_game_red_thresold_input_1 = load_game_red_thresold_input_1 ? load_game_red_thresold_input_1 : 10;
 load_game_high_input = load_game_high_input ? load_game_high_input : 20;
 load_game_low_input = load_game_low_input ? load_game_low_input : 0;
 load_game_table_rows_input = load_game_table_rows_input ? load_game_table_rows_input : 50;
 load_game_chart_size_input = load_game_chart_size_input ? load_game_chart_size_input : 1000;
 load_game_analysis_input = load_game_analysis_input ? load_game_analysis_input : '1.5,2,3,4,5,6,7,8,9,10,100';
 load_game_analysis_range_input = load_game_analysis_range_input ? load_game_analysis_range_input : '1,2,3,4,5,10,20,50,100,200';
+load_game_analysis_payout_appear_indexes = load_game_analysis_payout_appear_indexes ? load_game_analysis_payout_appear_indexes : '10,220';
 $('#game_hash_input').val(load_game_hash_input);
 $('#game_amount_input').val(load_game_amount_input);
 $('#game_red_thresold_input').val(load_game_red_thresold_input);
+$('#game_red_thresold_input_1').val(load_game_red_thresold_input_1);
 $('#game_high_input').val(load_game_high_input);
 $('#game_low_input').val(load_game_low_input);
 $('#game_table_rows_input').val(load_game_table_rows_input);
 $('#game_chart_size_input').val(load_game_chart_size_input);
 $('#game_analysis_input').val(load_game_analysis_input);
 $('#game_analysis_range_input').val(load_game_analysis_range_input);
+$('#game_analysis_payout_appear_indexes').val(load_game_analysis_payout_appear_indexes);
 $('#game_dotmap_height_input').val(load_game_dotmap_height_input);
 
 let dots_cols = 0;
@@ -180,7 +189,9 @@ var $range = $('.range-analysis');
 var isVerifying = false;
 var data = [];
 var dataN = [];
+var dataN1 = [];
 var gameRedThresold = 2.0;
+var gameRedThresold1 = 10.0;
 var duration = 0;
 
 $('#game_verify_submit').on('click', () => {
@@ -191,11 +202,44 @@ $('#game_verify_submit').on('click', () => {
 
 function showAnalysis() {
   gameRedThresold = Number($('#game_red_thresold_input').val());
-  analysisArray = ($('#game_analysis_input').val()).replaceAll(' ', '').split(',');
-  analysisRanges = ($('#game_analysis_range_input').val()).replaceAll(' ', '').split(',');
+  gameRedThresold1 = Number($('#game_red_thresold_input_1').val());
+  analysisArray = ($('#game_analysis_input').val()).split(/\s*\,\s*/).sort((a, b) => {
+    return b - a;
+  });
+  analysisRanges = ($('#game_analysis_range_input').val()).split(/\s*\,\s*/);
+  [analPayout, analCount] = ($('#game_analysis_payout_appear_indexes').val()).split(/\s*\,\s*/);
 
   $range.empty();
   analysisArray.forEach((v) => showRangeAnalysis(data, v));
+
+  const dataA = [];
+  let idx = data.length - 1;
+  if (!analPayout) {
+    analPayout = 10;
+  }
+  if (!analCount) {
+    analCount = 220;
+  }
+  let cnt = 0;
+  let last = -1;
+  for (let i = 0; i < Number(analCount) && i < data.length; i++, idx--) {
+    if (data[idx].bust >= Number(analPayout)) {
+      if (dataA[cnt] == undefined) {
+        dataA[cnt] = 1;
+      } else {
+        dataA[cnt]++;
+      }
+      if (last < 0) {
+        last = cnt;
+      }
+      cnt = 0;
+    } else {
+      cnt++;
+    }
+  }
+  let str = `${analPayout} (cur: <span style="color:green;">${last}</span>): `;
+  dataA.forEach((e, ix) => str += `<span style="color:red;${ix == last ? "background:yellow" : ""}">${ix}</span> : <span style="color:cyan;">${e}</span>,  `);
+  $('.payout-appears').html(str);
 
   showSequenceRed();
   drawChart();
@@ -213,6 +257,7 @@ function verify(gameHash, gameAmount) {
   localStorage.setItem('bc.game.crash.analysis.hashvalue', $('#game_hash_input').val());
   localStorage.setItem('bc.game.crash.analysis.gameamount', $('#game_amount_input').val());
   localStorage.setItem('bc.game.crash.analysis.red', $('#game_red_thresold_input').val());
+  localStorage.setItem('bc.game.crash.analysis.red1', $('#game_red_thresold_input_1').val());
   localStorage.setItem('bc.game.crash.analysis.high', $('#game_high_input').val());
   localStorage.setItem('bc.game.crash.analysis.low', $('#game_low_input').val());
   localStorage.setItem('bc.game.crash.analysis.tablerows', $('#game_table_rows_input').val());
@@ -225,9 +270,12 @@ function verify(gameHash, gameAmount) {
 
   data = [];
   dataN = [];
-  var index = 0;
+  dataN1 = [];
+  let index = 0;
   let lastState = 0;
   let peCount = 0;
+  let lastState1 = 0;
+  let peCount1 = 0;
   const trows = Number($('#game_table_rows_input').val());
   maxDataN = 0;
   minDataN = 9999;
@@ -242,16 +290,24 @@ function verify(gameHash, gameAmount) {
     let curState = item.bust >= gameRedThresold ? 1 : -1;
     if (curState != lastState) {
       dataN.unshift({ state: lastState, count: peCount, time: item.time });
-      if (maxDataN < peCount) {
-        maxDataN = peCount;
-      }
-      if (minDataN > peCount) {
-        minDataN = peCount;
-      }
       peCount = 0;
     }
     peCount += curState;
     lastState = curState;
+
+    curState = item.bust >= gameRedThresold1 ? 1 : -1;
+    if (curState != lastState1) {
+      dataN1.unshift({ state: lastState1, count: peCount1, time: item.time });
+      if (maxDataN < peCount1) {
+        maxDataN = peCount1;
+      }
+      if (minDataN > peCount1) {
+        minDataN = peCount1;
+      }
+      peCount1 = 0;
+    }
+    peCount1 += curState;
+    lastState1 = curState;
   }
 
   // Range Analysis
@@ -404,21 +460,21 @@ function showSequenceRed() {
   let max1_seq_one_count = 0;
 
   dataN.forEach(d => {
-    if (Math.abs(d.count)<=2) {
+    if (Math.abs(d.count) <= 2) {
       seq_one_count++;
     } else {
       max_seq_one_count = Math.max(seq_one_count, max_seq_one_count);
       seq_one_count = 0;
     }
-    if (d.count>0) {
-      if (d.count==2) {
+    if (d.count > 0) {
+      if (d.count == 2) {
         seq2_one_count++;
-      } else if (d.count>4) {
+      } else if (d.count > 4) {
         max2_seq_one_count = Math.max(seq2_one_count, max2_seq_one_count);
         seq2_one_count = 0;
       }
     } else {
-      if (d.count==-1) {
+      if (d.count == -1) {
         seq1_one_count++;
       } else {
         max1_seq_one_count = Math.max(seq1_one_count, max1_seq_one_count);
@@ -737,12 +793,12 @@ function drawChart2() {
   const ctx = document.getElementById('chartjs_container1');
   const chartData = {
     // labels: dataN.map((d) => ''),
-    labels: dataN.map((d) => Math.abs(d.count)),
+    labels: dataN1.map((d) => Math.abs(d.count)),
     // labels: dataN.map((d) => d.time.toLocaleTimeString()),
     datasets: [
       {
         label: '',
-        data: dataN.map((d) => d.count),
+        data: dataN1.map((d) => d.count),
         backgroundColor: (ctx) => {
           if (ctx.raw < 0) {
             return 'red';
@@ -802,6 +858,58 @@ function drawChart2() {
   mychart1 = new Chart(ctx, config);
 }
 
+function drawChartM() {
+  let show = document.getElementById("game_analysis_graph").checked;
+  let ctx = document.getElementById("chartjs_container_m").getContext('2d');
+  document.getElementById("chartjs_container_m").style.display = show ? 'block' : 'none';
+  if (!show) {
+    return;
+  }
+  const option = {
+    type: 'line',
+    data: {
+      datasets: []
+    },
+    options: {
+      responsive: true, // Instruct chart js to respond nicely.
+      maintainAspectRatio: false, // Add to prevent default behaviour of full-width/height 
+    }
+  }
+  option.data.labels = data.map(e => e.bust);
+  const borderColor = ['#FF6633', '#FFB399', '#FF33FF', '#FFFF99', '#00B3E6',
+    '#E6B333', '#3366E6', '#999966', '#99FF99', '#B34D4D',
+    '#80B300', '#809900', '#E6B3B3', '#6680B3', '#66991A',
+    '#FF99E6', '#CCFF1A', '#FF1A66', '#E6331A', '#33FFCC',
+    '#66994D', '#B366CC', '#4D8000', '#B33300', '#CC80CC',
+    '#66664D', '#991AFF', '#E666FF', '#4DB3FF', '#1AB399',
+    '#E666B3', '#33991A', '#CC9999', '#B3B31A', '#00E680',
+    '#4D8066', '#809980', '#E6FF80', '#1AFF33', '#999933',
+    '#FF3380', '#CCCC00', '#66E64D', '#4D80CC', '#9900B3',
+    '#E64D66', '#4DB380', '#FF4D4D', '#99E6E6', '#6666FF'];
+  const backgroundColor = ['#FF6633', '#FFB399', '#FF33FF', '#FFFF99', '#00B3E6',
+    '#E6B333', '#3366E6', '#999966', '#99FF99', '#B34D4D',
+    '#80B300', '#809900', '#E6B3B3', '#6680B3', '#66991A',
+    '#FF99E6', '#CCFF1A', '#FF1A66', '#E6331A', '#33FFCC',
+    '#66994D', '#B366CC', '#4D8000', '#B33300', '#CC80CC',
+    '#66664D', '#991AFF', '#E666FF', '#4DB3FF', '#1AB399',
+    '#E666B3', '#33991A', '#CC9999', '#B3B31A', '#00E680',
+    '#4D8066', '#809980', '#E6FF80', '#1AFF33', '#999933',
+    '#FF3380', '#CCCC00', '#66E64D', '#4D80CC', '#9900B3',
+    '#E64D66', '#4DB380', '#FF4D4D', '#99E6E6', '#6666FF'];
+  let gMax = Math.max(analysisArray.length, 10);
+  for (let i = 0, j = 0; i < analysisArray.length; i++, j += .3) {
+    option.data.datasets.push({
+      label: `${analysisArray[i]}`,
+      data: data.map(e => (e.bust >= analysisArray[i] ? (gMax - j) + gMax : -(gMax - j) + gMax)),
+      fill: true,
+      borderColor: borderColor[i],
+      backgroundColor: backgroundColor[i] + '30',
+      borderWidth: 1,
+    });
+  }
+  let myChart = new MChart(ctx, option);
+}
+
 function initHistory() {
   $('.cell-dot').removeClass('type-1').removeClass('type-2').removeClass('type-3');
   $('.cell-dot').addClass('type-0');
@@ -848,6 +956,7 @@ function addHistory(col, row, val, idx, time) {
 
 function drawChart1() {
   drawChart2();
+  drawChartM();
   initHistory();
 
   let resize_require = load_game_dotmap_height_input != $('#game_dotmap_height_input').val();
