@@ -828,7 +828,7 @@ function drawChart2() {
         },
         y: {
           beginAtZero: true,
-          max: maxDataN,
+          max: 30,
           min: minDataN,
           ticks: {
             callback: function (value, index, ticks) {
