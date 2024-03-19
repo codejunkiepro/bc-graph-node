@@ -800,20 +800,30 @@ function drawChart2() {
         label: '',
         data: dataN1.map((d) => d.count),
         backgroundColor: (ctx) => {
-          // if(ctx.raw < -30) {
-          //   return 'yellow'
-          // }
-          if (ctx.raw < 0) {
-            return 'red';
+          if(ctx.raw < -30) {
+            return 'red'
+          }
+          if(ctx.raw < -10) {
+            return 'yellow'
+          }
+          // return 
+          if (ctx.raw > 0) {
+            return 'white';
           }
           return 'green';
         },
         borderColor: (ctx) => {
-          if(ctx.raw < -30) {
-            return 'yellow'
-          }
+          // if(ctx.raw < -30) {
+          //   return 'yellow'
+          // }
+          return null
         },
-        borderWidth: 2
+        // borderWidth: (ctx) => {
+        //   if(ctx.raw > -29) {
+        //     return 0;
+        //   }
+        //   return 2
+        // }
       },
     ],
   };
