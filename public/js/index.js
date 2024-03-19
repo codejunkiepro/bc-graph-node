@@ -801,7 +801,7 @@ function drawChart2() {
         data: dataN1.map((d) => d.count),
         backgroundColor: (ctx) => {
           if(ctx.raw < -30) {
-            return 'red'
+            return '#ff4400'
           }
           if(ctx.raw < -10) {
             return 'yellow'
