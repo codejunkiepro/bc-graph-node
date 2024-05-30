@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="./js/jquery.js"></script>
+    <script src="./js/jquery-mask.js"></script>
+    <link rel="stylesheet" href="./css/app.css">
+</head>
+
+<body>
+    <input type="text" placeholder="xxx.xxx.xxx.xxx" minlength="7" maxlength="15" size="15" class="ip-text"
+        pattern="^((\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.){3}(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])$" /><button onclick="addIp()"
+        style="margin-bottom: 20px;">Add IP</button>
+    <table>
+        <thead>
+            <th>No</th>
+            <th>IP</th>
+            <th></th>
+        </thead>
+        <tbody class="ip-table">
+            <tr>
+                <td>192.168.100.100</td>
+                <td><button>Delete</button></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <script>
+        $('.ip-text').mask('0ZZ.0ZZ.0ZZ.0ZZ', { translation: { 'Z': { pattern: /[0-9]/, optional: true } } });
+        $.ajax({
+            url: '/api/ips',
+            success: (res) => {
+                // console.log(res)
+                let html = ""
+                res.map((item, index) => {
+                    html += "<tr>";
+                    html += `<td>${index + 1}</td>`;
+                    html += `<td>${item.ip}</td>`;
+                    html += `<td><button onclick="deleteIp(${item.id})">Delete</button></td>`;
+                    html += "</tr>";
+                })
+
+                $('.ip-table').html(html);
+
+            }
+        })
+
+        function addIp() {
+            const ip = $('.ip-text').val();
+
+            if (!ip) {
+                alert('Pls input ip');
+                return;
+            }
+
+            $.ajax({
+                url: "/api/ip",
+                method: "post",
+                data: {
+                    ip: ip
+                },
+                success: (res) => {
+                    window.location.reload()
+                }
+            })
+
+            console.log(ip)
+        }
+
+        function deleteIp(id) {
+            $.ajax({
+                url: "/api/ip",
+                method: "delete",
+                data: {
+                    id: id
+                },
+                success: (res) => {
+                    window.location.reload()
+                }
+            })
+        }
+    </script>
+</body>
+
+</html>

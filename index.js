@@ -4,6 +4,8 @@ const cors = require("cors");
 const { Server } = require('socket.io')
 const http = require('http')
 const { crashPointFromHash, generateHash } = require("./hash")
+const { Sequelize, DataTypes } = require('sequelize');
+var bodyParser = require('body-parser')
 
 const tf = require('@tensorflow/tfjs');
 const fs = require('fs');
@@ -15,7 +17,49 @@ var colors = require('colors');
 const { create } = require("domain");
 colors.enable();
 
+const sequelize = new Sequelize({
+    dialect: 'sqlite',
+    storage: './database.sqlite',
+    logging: false
+});
+
+
+const History = sequelize.define('History', {
+    ip: {
+        type: DataTypes.STRING
+    },
+    type: {
+        type: DataTypes.STRING
+    },
+    imsi: {
+        type: DataTypes.STRING
+    },
+    strength: {
+        type: DataTypes.STRING
+    },
+    dataUsage: {
+        type: DataTypes.STRING
+    },
+    time: {
+        type: DataTypes.DATE
+    }
+});
+
+const IpList = sequelize.define('IpList', {
+    ip: {
+        type: DataTypes.STRING
+    }
+})
+
+sequelize.sync()
+
 app.use(express.static(__dirname + '/public'))
+
+// parse application/x-www-form-urlencoded
+app.use(bodyParser.urlencoded({ extended: false }))
+
+// parse application/json
+app.use(bodyParser.json())
 
 app.get('/', (req, res) => {
     res.send('No shop provide');
@@ -23,6 +67,14 @@ app.get('/', (req, res) => {
 
 app.get('/bc-graph', async (req, res) => {
     res.sendFile(path.join(__dirname, '/public/bc-graph.html'))
+})
+
+app.get('/ip-list', async (req, res) => {
+    res.sendFile(path.join(__dirname, '/public/iplist.html'))
+})
+
+app.get('/rb-report', async (req, res) => {
+    res.sendFile(path.join(__dirname, '/public/rbreport.html'))
 })
 
 const error = chalk.red;
@@ -37,57 +89,16 @@ var theLastHash = '';
 var calcNow = false;
 const payoutArraySize = 200000;
 const showNumber = 100;
-const multiples = [
-    // [1, 1.01, false, false, false, false],
-    // [1, 1.5, false, false, false, false],
-    // [1.5, 2, false, false, false, false],
-    // [1.3, 0, true, false, false, false],
-    [1.01, 0, true, false, false, false],
-    [1.2, 0, true, false, false, false],
-    [1.3, 0, true, false, false, false],
-    [1.4, 0, true, false, false, false],
-    [1.5, 0, true, false, false, false],
-    // [2, 10, false, false, false, false],
-    [2, 0, true, false, false, false],
-    // [3, 0, false, false, false, false],
-    // [4, 0, false, false, false, false],
-    [5, 0, true, false, false, false],
-    // [6, 0, false, false, false, false],
-    // [7, 0, false, false, false, false],
-    [10, 0, true, true, false, false],
-    // [20, 0, false, false, false, false],
-    // [50, 0, false, false, false, false],
-    // [10, 100, false, false, false, false],
-    // [100, 0, false, false, false, false],
-    // [1000, 0, false, false, false, false],
-    // [Number.MAX_SAFE_INTEGER]
-];
 const percentNums = [10, 20, 50, 100, 200, 300, 500, 1000, 2000, 3000, 5000, 10000, 20000, 30000, 50000, 100000];
 const percentNums2 = [1, 2, 3, 4, 5, 10, 20, 50, 100, 200, 500, 1000];
 
 let stdColumns = process.stdout.columns;
 
-async function createModel() {
-    const model = tf.sequential();
-    model.add(tf.layers.dense({ units: percentNums.length, inputShape: [percentNums.length], activation: 'selu' }));
-    model.add(tf.layers.dense({ units: 1, activation: 'linear' }));
-    return model;
-}
 
-
-
-async function trainModel(model, trainingData, trainingLabels) {
-    model.compile({ loss: 'meanSquaredError', optimizer: 'sgd' });
-    await model.fit(trainingData, trainingLabels, { epochs: 10 });
-}
 async function loadModel(file) {
     const model = await tf.loadLayersModel(file);
     return model;
 }
-async function saveModel(model, file) {
-    await model.save(file);
-}
-
 const file_model = path.join(__dirname, `data\\predict2.json`)
 
 const mlSize = 50;
@@ -362,24 +373,124 @@ app.get('/get/hash', async (req, res) => {
     res.send(theLastHash);
 });
 
+app.post('/get/rb-report', async (req, res) => {
+    // console.log(req.query);
+    // res.sendStatus(200)
+    const result = req.body;
+    if (result.ip) {
+        await History.create({
+            ...result,
+        })
+    }
+    res.sendStatus(200)
+})
+
+app.get('/api/ips', async (req, res) => {
+    const ips = await IpList.findAll({});
+
+    return res.send(ips)
+})
+
+app.post('/api/ip', async (req, res) => {
+    // console.log(req.body);
+    // // res.send()
+    const { ip } = req.body;
+
+    await IpList.create({
+        ip: ip
+    })
+
+    res.send({})
+})
+
+app.delete('/api/ip', async (req, res) => {
+    // console.log(req.body);
+    // // res.send()
+    const { id } = req.body;
+
+    await IpList.destroy({
+        where: {
+            id: id
+        }
+    })
+
+    res.send({})
+})
+
+app.post('/get/all-ips', async (req, res) => {
+    // console.log(req.body);
+    const { ips } = req.body;
+    for (let ip of ips) {
+        await IpList.create({ ip: ip });
+    }
+    res.sendStatus(200)
+})
+
+app.get('/histories', async (req, res) => {
+    const histories = await sequelize.query(`
+        SELECT *
+        FROM Histories
+        WHERE datetime(time) >= datetime('now', '-24 hours');
+    `);
+
+    const ips = await IpList.findAll({});
+    const result = ips.map(item => {
+        const ip = item.ip;
+        const ipHistory = histories[0].filter(row => row.ip == ip);
+        // console.log(ipHistory)
+        let imsi;
+        let data = ipHistory.map(history => {
+            if (!imsi && history.imsi) {
+                imsi = history.imsi;
+            }
+
+            return {
+                ip: history.ip,
+                type: history.type ? history.type : "",
+                strength: history.strength ? history.strength : "",
+                dataUsage: history.dataUsage ? history.dataUsage : "",
+                time: history.time
+            }
+        });
+
+        data = data.map(ele => {
+            return {
+                ...ele,
+                imsi: imsi
+            }
+        })
+
+        return data
+    })
+
+    return res.send(result);
+})
+
+
+
 var lastGameId = 0;
+var oldHash;
 app.get('/add/hash', async (req, res) => {
     const hash = req.query.hash;
+    if (hash === oldHash) { res.send('adsf'); return; }
+    oldHash = hash;
     let odds = req.query.odds;
     let gameid = Number(req.query.gameid);
     const payout = Number(req.query.payout);
     const count = Number(req.query.count);
-    if (theLastHash == hash || gameid <= lastGameId) {
-        log(gameid, hash.cyan.bgBlue, Number(odds) < 2 ? odds.red.bgWhite : odds.green.bgWhite, `${new Date().toLocaleString()}`.white);
-        hashOK = true;
-        if (payout == undefined) {
-            res.end();
-            return;
-        }
-    }
+    // if (theLastHash == hash || gameid <= lastGameId) {
+    //     log(gameid, hash.cyan.bgBlue, Number(odds) < 2 ? odds.red.bgWhite : odds.green.bgWhite, `${new Date().toLocaleString()}`.white);
+    //     hashOK = true;
+    //     if (payout == undefined) {
+    //         res.end();
+    //         return;
+    //     }
+    // }
     io.emit('refresh', hash);
     // console.clear();
     log(gameid, hash.blue.bgGreen, Number(odds) < 2 ? odds.red.bgWhite : odds.green.bgWhite, `${new Date().toLocaleString()}`.white.bgBlue);
+    res.send('ok');
+    return;
     if (calcNow) {
         res.end();
         return;
@@ -464,6 +575,7 @@ app.get('/add/hash', async (req, res) => {
         log("BC.CRASH GAME IS FAKE!!!!!!!!!!!!!!!!!".red);
         log("\n");
         log("\n");
+        // res.send("BC.CRASH GAME IS FAKE");
     }
     return;
     const inputData = [];
