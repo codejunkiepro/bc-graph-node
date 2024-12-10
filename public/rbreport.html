@@ -8,94 +8,228 @@
     <script src="./js/jquery.js"></script>
     <script src="./js/jquery-mask.js"></script>
     <script src="./js/moment.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.34/moment-timezone-with-data.min.js"></script>
     <link rel="stylesheet" href="./css/app.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+    <style>
+        .table-container {
+            overflow-x: auto;
+            overflow-y: auto;
+            min-height: 30px;
+            position: relative;
+        }
+
+        table {
+            /* border-collapse: collapse; */
+            width: 100%;
+        }
+
+        th,
+        td {
+            padding: 3px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+
+        .fixed-ip-column {
+            position: sticky;
+            left: 0;
+            background: #cdcbcb;
+            z-index: 1;
+            text-align: center;
+        }
+
+        .fixed-ip-header {
+            z-index: 2;
+        }
+    </style>
 </head>
 
 <body>
-    <!-- <button><a href="/ip-list">IP LIST</a></button> -->
-    <table>
-        <thead class="table-header"></thead>
-        <tbody class="table-body"></tbody>
-    </table>
-    <div>
+    <button id="prevDay">Previous Day</button>
+    <input name="datepicker" type="text" id="datePicker" />
+    <button id="nextDay">Next Day</button>
+    <div class="table-container">
+        <table>
+            <thead class="table-header"></thead>
+            <tbody class="table-body"></tbody>
+        </table>
+    </div>
+
+    <div style="position: relative; height:300px">
         <canvas id="myChart"></canvas>
+    </div>
+
+    <div style="position: relative; height:300px;">
+        <canvas id="myChart1"></canvas>
     </div>
 
     <script>
         const ctx = document.getElementById('myChart');
+        ctx.height = 300;
+        ctx.width = 500;
 
-        $.ajax({
-            url: '/histories',
-            success: (res) => {
-                // console.log(res)
-                const lastData = res[res.length - 1];
-                // console.log(lastData)
-                // new Chart(ctx, {
-                //     type: 'bar',
-                //     data: {
-                //         labels: ['Red', 'Blue', 'Yellow', 'Green', 'Purple', 'Orange'],
-                //         datasets: [{
-                //             label: '# of Votes',
-                //             data: [12, 19, 3, 5, 2, 3],
-                //             borderWidth: 1
-                //         }]
-                //     },
-                //     options: {
-                //         scales: {
-                //             y: {
-                //                 beginAtZero: true
-                //             }
-                //         }
-                //     }
-                // });
-
-                if (res.length) {
-                    const headerData = res[0];
-
-                    let html = "<th rowspan='2'>No</th><th rowspan='2'>IP</th><th rowspan='2'>IMSI</th>";
-                    let header = "";
-                    headerData.forEach(item => {
-                        // console.log(item.time)
-                        // console.log()
-                        html += "<th colspan='3'>" + moment(item.time).format('MM-DD HH:mm') + "</th>"
-                        header += "<th>Type</th>";
-                        // header += "<th>IMSI</th>";
-                        header += "<th>Signal</th>";
-                        header += "<th>Usage</th>";
-                    });
-                    html += ""
-                    $('.table-header').html(`<tr>${html}</tr><tr>${header}</tr>`)
-
-                    html = "";
-
-                    res.forEach((rows, count) => {
-                        html += "<tr>";
-                        rows.forEach((item, index) => {
-                            if (index == 0) {
-                                html += "<td>" + (count + 1) + "</td>";
-                                html += "<td>" + item.ip.replace('192.168.8.', "") + "</td>";
-                                html += "<td>" + item.imsi + "</td>";
-                            }
-                            html += `<td style="background: ${item.type == "4G" ? "#8282ff" : item.type == "5G" ? "#fff" : "#f00"}">` + (item.type == null || item.type.includes("Service") ? "" : item.type.replace("G", "")) + "</td>";
-                            // html += "<td>" + item.imsi + "</td>";
-                            html += "<td>" + item.strength + "</td>";
-                            html += "<td>" + item.dataUsage + "</td>";
-                        })
-                        html += "</tr>"
-                    })
-
-                    $('.table-body').html(html)
+        const todayCtx = document.getElementById('myChart1');
+        todayCtx.height = 300;
+        todayCtx.width = 500
+        moment.tz.setDefault('Asia/Tokyo');
+        $(document).ready(function () {
+            const datePicker = flatpickr("#datePicker", {
+                defaultDate: new Date(moment().format('YYYY-MM-DD')),
+                onChange: function (selectedDates, dateStr, instance) {
+                    fetchData(dateStr);
+                    checkNextDayButton(dateStr);
                 }
+            });
+
+            $('#prevDay').click(function () {
+                const selectedDate = datePicker.selectedDates[0];
+                selectedDate.setDate(selectedDate.getDate() - 1);
+                datePicker.setDate(selectedDate);
+                fetchData(datePicker.input.value);
+            });
+
+            $('#nextDay').click(function () {
+                const selectedDate = datePicker.selectedDates[0];
+                selectedDate.setDate(selectedDate.getDate() + 1);
+                datePicker.setDate(selectedDate);
+                fetchData(datePicker.input.value);
+            });
+
+            function fetchData(date) {
+                renderTable(date)
             }
+            var todayStr = moment().format('YYYY-MM-DD')
+            fetchData(todayStr); // Fetch data for today on page load
+            checkNextDayButton(todayStr); // Check the button state on page load
         })
 
-        $.ajax({
-            url: "/api/last-data",
-            success: (res) => {
-                console.log(res)
+        function renderTable(date) {
+            $.ajax({
+                url: '/histories?date=' + date,
+                success: (res) => {
+                    const lastData = res[res.length - 1];
+                    if (res.length) {
+                        const headerData = res[0];
+
+                        let html = "<th rowspan='2'>No</th><th class='fixed-ip-header' style='min-width: 50px' rowspan='2'>IP</th><th rowspan='2'>IMSI</th>";
+                        let header = "";
+                        headerData.forEach(item => {
+                            html += "<th colspan='3'>" + moment(item.time).tz("Asia/Tokyo").format('MM-DD HH:mm'); + "</th>"
+                            header += "<th style='min-width: 50px;'>T</th>";
+                            header += "<th style='min-width: 50px;'>S</th>";
+                            header += "<th style='min-width: 50px;'>U</th>";
+                        });
+                        $('.table-header').html(`<tr>${html}</tr><tr>${header}</tr>`)
+
+                        html = "";
+
+                        res.forEach((rows, count) => {
+                            html += "<tr style='text-align: center;'>";
+                            rows.forEach((item, index) => {
+                                if (index == 0) {
+                                    html += "<td>" + (count + 1) + "</td>";
+                                    html += "<td class='fixed-ip-column'>" + (item.ip ? item.ip.replace('192.168.8.', "") : "") + "</td>";
+                                    html += "<td>" + (item.imsi ? item.imsi : "") + "</td>";
+                                }
+                                html += `<td style="background: ${item.type == "4" ? "#8282ff" : item.type == "5" ? "#fff" : "#f00"}">` + (item.type == null ? "" : item.type) + "</td>";
+                                html += "<td>" + (item.strength ? item.strength : "") + "</td>";
+                                html += "<td>" + (item.dataUsage ? item.dataUsage : "") + "</td>";
+                            })
+                            html += "</tr>"
+                        })
+
+                        $('.table-body').html(html)
+                    }
+                }
+            })
+        }
+
+        function renderLastData(date) {
+            $.ajax({
+                url: "/api/last-data?date=" + date,
+                success: (res) => {
+                    new Chart(ctx, {
+                        type: 'bar',
+                        plugins: [ChartDataLabels],
+                        data: {
+                            labels: res.map(item => {
+                                return item.ip.replace("192.168.8.", "")
+                            }),
+                            datasets: [{
+                                label: '# of Total Usage',
+                                data: res.map(item => item.dataUsage),
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            },
+                            plugins: {
+                                datalabels: {
+                                    color: '#f00',
+                                    anchor: 'end',
+                                    padding: 2
+                                }
+                            },
+                            responsive: false
+                        }
+                    });
+                }
+            })
+        }
+
+        function renderTodayReport(date) {
+            $.ajax({
+                url: "/api/today-report?date=" + date,
+                success: (res) => {
+                    new Chart(todayCtx, {
+                        type: 'bar',
+                        plugins: [ChartDataLabels],
+                        data: {
+                            labels: res.map(item => {
+                                return item.ip.replace("192.168.8.", "")
+                            }),
+                            datasets: [{
+                                label: '# of Today Usage',
+                                data: res.map(item => item.usage),
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            },
+                            plugins: {
+                                datalabels: {
+                                    color: '#f00',
+                                    anchor: 'end'
+                                }
+                            },
+                            responsive: false
+                        }
+                    });
+                }
+            })
+        }
+
+        function checkNextDayButton(selectedDate) {
+            const today = moment().format('YYYY-MM-DD');
+            if (selectedDate === today) {
+                $('#nextDay').prop('disabled', true);
+            } else {
+                $('#nextDay').prop('disabled', false);
             }
-        })
+        }
     </script>
 </body>
 

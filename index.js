@@ -1,615 +1,456 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
-const { Server } = require('socket.io')
-const http = require('http')
-const { crashPointFromHash, generateHash } = require("./hash")
-const { Sequelize, DataTypes } = require('sequelize');
-var bodyParser = require('body-parser')
+const { Server } = require("socket.io");
+const http = require("http");
+const { crashPointFromHash, generateHash } = require("./hash");
+const { Sequelize, DataTypes } = require("sequelize");
+var bodyParser = require("body-parser");
+const moment = require("moment-timezone");
 
-const tf = require('@tensorflow/tfjs');
-const fs = require('fs');
-const path = require('path')
-const { readFileSync, writeFileSync, existsSync } = require('fs')
+const path = require("path");
 
-const chalk = require('chalk');
-var colors = require('colors');
-const { create } = require("domain");
+var colors = require("colors");
+
 colors.enable();
 
+// Define the Tokyo timezone
+const TOKYO_TIMEZONE = "Asia/Tokyo";
+
 const sequelize = new Sequelize({
-    dialect: 'sqlite',
-    storage: './database.sqlite',
-    logging: false
+  dialect: "sqlite",
+  storage: "./database.sqlite",
+  logging: false,
 });
 
-
-const History = sequelize.define('History', {
-    ip: {
-        type: DataTypes.STRING
-    },
-    type: {
-        type: DataTypes.STRING
-    },
-    imsi: {
-        type: DataTypes.STRING
-    },
-    strength: {
-        type: DataTypes.STRING
-    },
-    dataUsage: {
-        type: DataTypes.STRING
-    },
-    time: {
-        type: DataTypes.DATE
-    }
+const History = sequelize.define("History", {
+  ip: {
+    type: DataTypes.STRING,
+  },
+  type: {
+    type: DataTypes.STRING,
+  },
+  imsi: {
+    type: DataTypes.STRING,
+  },
+  strength: {
+    type: DataTypes.STRING,
+  },
+  dataUsage: {
+    type: DataTypes.STRING,
+  },
+  time: {
+    type: DataTypes.DATE,
+  },
 });
 
-const IpList = sequelize.define('IpList', {
-    ip: {
-        type: DataTypes.STRING
-    }
-})
+const IpList = sequelize.define("IpList", {
+  ip: {
+    type: DataTypes.STRING,
+  },
+});
 
-sequelize.sync()
+sequelize.sync();
 
-app.use(express.static(__dirname + '/public'))
+app.use(express.static(__dirname + "/public"));
 
 // parse application/x-www-form-urlencoded
-app.use(bodyParser.urlencoded({ extended: false }))
+app.use(bodyParser.urlencoded({ extended: false }));
 
 // parse application/json
-app.use(bodyParser.json())
+app.use(bodyParser.json());
 
-app.get('/', (req, res) => {
-    res.send('No shop provide');
-})
+app.get("/", (req, res) => {
+  res.send("No shop provide");
+});
 
-app.get('/bc-graph', async (req, res) => {
-    res.sendFile(path.join(__dirname, '/public/bc-graph.html'))
-})
+app.get("/bc-graph", async (req, res) => {
+  res.sendFile(path.join(__dirname, "/public/bc-graph.html"));
+});
 
-app.get('/ip-list', async (req, res) => {
-    res.sendFile(path.join(__dirname, '/public/iplist.html'))
-})
+app.get("/ip-list", async (req, res) => {
+  res.sendFile(path.join(__dirname, "/public/iplist.html"));
+});
 
-app.get('/rb-report', async (req, res) => {
-    res.sendFile(path.join(__dirname, '/public/rbreport.html'))
-})
-
-const error = chalk.red;
-const warning = chalk.bgRed.yellow;
-const good = chalk.bgCyan.black;
+app.get("/rb-report", async (req, res) => {
+  res.sendFile(path.join(__dirname, "/public/rbreport.html"));
+});
 
 const log = console.log;
 
-let hashOK = false;
-const payoutArray = [];
-var theLastHash = '';
-var calcNow = false;
-const payoutArraySize = 200000;
-const showNumber = 100;
-const percentNums = [10, 20, 50, 100, 200, 300, 500, 1000, 2000, 3000, 5000, 10000, 20000, 30000, 50000, 100000];
-const percentNums2 = [1, 2, 3, 4, 5, 10, 20, 50, 100, 200, 500, 1000];
-
-let stdColumns = process.stdout.columns;
-
-
-async function loadModel(file) {
-    const model = await tf.loadLayersModel(file);
-    return model;
-}
-const file_model = path.join(__dirname, `data\\predict2.json`)
-
-const mlSize = 50;
-const predictModel = tf.sequential();
-predictModel.add(tf.layers.dense({ units: mlSize, inputShape: [mlSize], activation: 'relu' }));
-predictModel.add(tf.layers.dense({ units: 1, activation: 'linear' }));
-predictModel.compile({ loss: 'meanSquaredError', optimizer: 'sgd' });
-
-const initPayouts = (hash) => {
-    if (calcNow) {
-        return;
-    }
-    calcNow = true;
-    let calcHash = hash;
-    for (let i = 0; i < payoutArraySize; i++) {
-        const odds = crashPointFromHash(calcHash);
-        payoutArray.push(odds);
-        calcHash = generateHash(calcHash);
-    }
-    theLastHash = hash;
-    calcNow = false;
-    hashOK = true;
-}
-
-const getPayouts = (hash) => {
-    if (calcNow) {
-        return;
-    }
-    calcNow = true;
-    const hashs = [];
-    let calcHash = hash;
-    hashOK = false;
-    for (let i = 0; i < payoutArraySize; i++) {
-        if (theLastHash == calcHash) {
-            hashOK = true;
-            break;
-        }
-        hashs.unshift(calcHash);
-        calcHash = generateHash(calcHash);
-    }
-    for (let i = 0; i < hashs.length; i++) {
-        const odds = crashPointFromHash(hashs[i]);
-        payoutArray.unshift(odds);
-        calcHash = generateHash(calcHash);
-    }
-    if (hashOK) {
-        theLastHash = hash;
-    }
-    payoutArray.pop();
-    calcNow = false;
-}
-
-const calcStatistic1 = (mul, preIdx, startIdx, show) => {
-    const states = [];
-    let count = 0;
-    let i = startIdx ?? 0;
-    let idx = preIdx ?? 0;
-    let slength = 12 + idx.toString().length;
-    const stdpercent = 100 / mul;
-    if (show) {
-        process.stdout.write(`${mul.toFixed(2).padStart(6, ' ')}`);
-        process.stdout.write(` (${preIdx}) : `.yellow);
-    }
-    for (let num in percentNums) {
-        for (; (idx < percentNums[num]) && (i < payoutArraySize); i++, idx++) {
-            if (payoutArray[i] >= mul) {
-                count++;
-            }
-        }
-        const res = count / percentNums[num] * 100;
-        states.push(res);
-        if (show) {
-            let sout = `${res.toFixed(0)}`;
-            sout = count.toString();
-            let slen = sout.toString().length + 2 + percentNums[num].toString().length + 2;
-            slength += slen;
-            if (slength + 2 < stdColumns) {
-                process.stdout.write(`${percentNums[num]}: `.magenta);
-                if (res < stdpercent) {
-                    process.stdout.write(sout.red);
-                } else if (res > stdpercent) {
-                    process.stdout.write(sout.yellow);
-                } else {
-                    process.stdout.write(sout.green);
-                }
-                process.stdout.write(', '.gray);
-            }
-        }
-    }
-    if (show) {
-        log("");
-    }
-    return states;
-}
-
-const calcStatistic2 = (mul, mul1, show) => {
-    for (let i = 0; i < percentNums2.length; i++) {
-        const periodNum = mul * percentNums2[i];
-        let count = 0;
-        let showIdx = 0;
-        const stdpercent = 100 / mul;
-        let slength = 18;
-        if (show) {
-            process.stdout.write(`${mul.toFixed(2).padStart(6, ' ')}`.blue);
-            process.stdout.write(' ~ '.red);
-            process.stdout.write(`${mul1 ? mul1.toFixed(2).padStart(6, ' ') : "      "}`.yellow);
-            process.stdout.write(` (${periodNum}) : `.blue);
-        }
-        slength += 2 + periodNum.toString().length;
-        for (let j = 0; j < payoutArraySize; j++) {
-            if (j % periodNum == 0) {
-                if (j > 0) {
-                    let slen = count.toString().length + 2;
-                    slength += slen;
-                    if (show && showIdx < showNumber && slength < stdColumns) {
-                        const res = count / periodNum * 100;
-                        let sout = `${res.toFixed(0)}`;
-                        sout = count.toString();
-                        if (res < stdpercent) {
-                            process.stdout.write(sout.red);
-                        } else if (res > stdpercent) {
-                            process.stdout.write(sout.yellow);
-                        } else {
-                            process.stdout.write(sout.green);
-                        }
-                        process.stdout.write(', '.gray);
-                        showIdx++;
-                    }
-                }
-                count = 0;
-            }
-            if (payoutArray[j] >= mul && (payoutArray[j] < mul1 || mul1 == 0)) {
-                count++;
-            }
-        }
-        if (show) {
-            log("");
-        }
-    }
-}
-
-const analysis = (mul, mul1, show) => {
-    let cnt = 0;
-    let idx = 0;
-    let total = 0;
-    let total1 = 0;
-    let last = false;
-    let first = payoutArray[0] < mul;
-    let slength = 16;
-    if (show) {
-        process.stdout.write(`${mul.toFixed(2).padStart(6, ' ')}`);
-        process.stdout.write(' ~ '.red);
-        process.stdout.write(`${mul1 ? mul1.toFixed(2).padStart(6, ' ') : "      "} : `.yellow);
-    }
-    let showIdx = 0;
-    for (let i = 0; idx < payoutArraySize; i++) {
-        cnt = 0;
-        for (let j = idx; j < payoutArraySize; j++, idx++, cnt++) {
-            if (payoutArray[idx] >= mul && (payoutArray[idx] < mul1 || mul1 == 0)) {
-                break;
-            }
-        }
-        idx++;
-        const more = cnt > mul;
-        if (more) {
-            total++;
-        } else {
-            total1++;
-        }
-        let slen = cnt.toString().length + 2;
-        slength += slen;
-        if (show && showIdx < showNumber && slength + 12 < stdColumns) {
-            if (more || first) {
-                process.stdout.write(last ? cnt.toString().bgRed.yellow : cnt.toString().red);
-                last = true;
-                first = false;
-            } else {
-                process.stdout.write(cnt.toString().green);
-                last = false;
-            }
-            process.stdout.write(', ');
-            showIdx++;
-        }
-    }
-    if (show) {
-        process.stdout.write(good(`${total1}`));
-        process.stdout.write(':');
-        process.stdout.write(warning(`${total}`));
-        log("");
-    }
-}
-
-const showAsGraph = (mul, showNum, showRuller, highDot, lowDot, std2) => {
-    if (highDot == undefined) {
-        highDot = "'";
-    }
-    if (lowDot == undefined) {
-        lowDot = '.';
-    }
-    if (std2 == undefined) {
-        std2 = true;
-    }
-    let length = Math.floor(stdColumns / mul) * mul;
-    showNum = Math.round(showNum / length) * length;
-    for (let i = 0; i < showNum && i < payoutArraySize; i++) {
-        let dot = lowDot;
-        if (payoutArray[i] < mul) {
-            dot = lowDot;
-        } else {
-            dot = highDot;
-        }
-        if (i && i % length == 0) {
-            log("");
-        }
-        if (std2) {
-            if (payoutArray[i] < 2) {
-                process.stdout.write(dot.red);
-            } else if (payoutArray[i] < 10) {
-                process.stdout.write(dot.green);
-            } else {
-                process.stdout.write(dot.yellow);
-            }
-        } else {
-            if (payoutArray[i] < mul) {
-                process.stdout.write(dot.red);
-            } else {
-                process.stdout.write(dot.green);
-            }
-        }
-    }
-    log("");
-    if (showRuller) {
-        for (let i = 0; i < stdColumns && i < payoutArraySize; i += 10) {
-            let num = i + 1;
-            let dot = num.toString().padEnd(10, ' ');
-            process.stdout.write(dot.yellow);
-        }
-    }
-    log("\n");
-}
+var theLastHash = "";
 
 const server = http.createServer(app);
-server.listen(7777, () => {
-})
+server.listen(7777, () => { });
 
 const io = new Server(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
-})
-
-io.on("connection", (socket) => {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
 });
 
-// app.use(cors());
-// app.use(express.json());
+io.on("connection", (socket) => { });
+
 app.use(
-    cors({
-        origin: '*'
-    })
+  cors({
+    origin: "*",
+  })
 );
 
 app.post("/bc/test", async (req, res, next) => {
-    const hash = req.body;
-    const result = crashPointFromHash(hash);
+  const hash = req.body;
+  const result = crashPointFromHash(hash);
 
-    res.send(result);
+  res.send(result);
 });
 
-app.get('/get/hash', async (req, res) => {
-    res.send(theLastHash);
+app.get("/get/hash", async (req, res) => {
+  res.send(theLastHash);
 });
 
-app.post('/get/rb-report', async (req, res) => {
-    // console.log(req.query);
-    // res.sendStatus(200)
-    const result = req.body;
-    if (result.ip) {
-        await History.create({
-            ...result,
-        })
-    }
-    res.sendStatus(200)
-})
+app.post("/get/rb-report", async (req, res) => {
+  // console.log(req.query);
+  // res.sendStatus(200)
+  let result = req.body;
+  console.log(result);
+  if (result.ip) {
+    let dataUsage = !result.dataUsage ? "0" : result.dataUsage;
+    const isMb = dataUsage !== "0" && dataUsage.includes("MB") ? true : false;
+    dataUsage = Number(dataUsage.replace("GB", "").replace("MB", ""));
+    if (isMb) dataUsage = dataUsage / 1024;
+    result = {
+      ...result,
+      type: result.type == "5G" ? 5 : result.type == "4G" ? 4 : "",
+      strength:
+        result.strength && result.strength.includes("dBm")
+          ? result.strength.replace("dBm", "")
+          : "",
+      dataUsage: dataUsage.toFixed(2),
+    };
+    await History.create({
+      ...result,
+    });
+  }
+  res.sendStatus(200);
+});
 
-app.get('/api/ips', async (req, res) => {
-    const ips = await IpList.findAll({});
+app.get("/api/ips", async (req, res) => {
+  const ips = await IpList.findAll({});
 
-    return res.send(ips)
-})
+  return res.send(ips);
+});
 
-app.post('/api/ip', async (req, res) => {
-    // console.log(req.body);
-    // // res.send()
-    const { ip } = req.body;
+app.post("/api/ip", async (req, res) => {
+  // console.log(req.body);
+  // // res.send()
+  const { ip } = req.body;
 
-    await IpList.create({
-        ip: ip
-    })
+  await IpList.create({
+    ip: ip,
+  });
 
-    res.send({})
-})
+  res.send({});
+});
 
-app.delete('/api/ip', async (req, res) => {
-    // console.log(req.body);
-    // // res.send()
-    const { id } = req.body;
+app.delete("/api/ip", async (req, res) => {
+  // console.log(req.body);
+  // // res.send()
+  const { id } = req.body;
 
-    await IpList.destroy({
-        where: {
-            id: id
-        }
-    })
+  await IpList.destroy({
+    where: {
+      id: id,
+    },
+  });
 
-    res.send({})
-})
+  res.send({});
+});
 
-app.post('/get/all-ips', async (req, res) => {
-    // console.log(req.body);
-    const { ips } = req.body;
-    for (let ip of ips) {
-        await IpList.create({ ip: ip });
-    }
-    res.sendStatus(200)
-})
+app.post("/get/all-ips", async (req, res) => {
+  // console.log(req.body);
+  const { ips } = req.body;
+  for (let ip of ips) {
+    await IpList.create({ ip: ip });
+  }
+  res.sendStatus(200);
+});
 
-app.get('/histories', async (req, res) => {
-    const histories = await sequelize.query(`
+app.get("/api/last-data", async (req, res) => {
+  const ips = await IpList.findAll({});
+  const { date } = req.query;
+  // const selectedDate = new Date(date);
+  // Convert the input date to Tokyo timezone and get the start of the day
+  const selectedDate = moment.tz(date, TOKYO_TIMEZONE).startOf("day").toDate();
+  const nextDate = moment
+    .tz(selectedDate, TOKYO_TIMEZONE)
+    .add(1, "day")
+    .toDate();
+  // Retrieve the history data for the selected date in Tokyo timezone
+  const histories = await sequelize.query(
+    `
         SELECT *
         FROM Histories
-        WHERE datetime(time) >= datetime('now', '-24 hours');
-    `);
-
-    const ips = await IpList.findAll({});
-    const result = ips.map(item => {
-        const ip = item.ip;
-        const ipHistory = histories[0].filter(row => row.ip == ip);
-        // console.log(ipHistory)
-        let imsi;
-        let data = ipHistory.map(history => {
-            if (!imsi && history.imsi) {
-                imsi = history.imsi;
-            }
-
-            return {
-                ip: history.ip,
-                type: history.type ? history.type : "",
-                strength: history.strength ? history.strength : "",
-                dataUsage: history.dataUsage ? history.dataUsage : "",
-                time: history.time
-            }
-        });
-
-        data = data.map(ele => {
-            return {
-                ...ele,
-                imsi: imsi
-            }
-        })
-
-        return data
-    })
-
-    return res.send(result);
-})
-
-
-
-var lastGameId = 0;
-var oldHash;
-app.get('/add/hash', async (req, res) => {
-    const hash = req.query.hash;
-    if (hash === oldHash) { res.send('adsf'); return; }
-    oldHash = hash;
-    let odds = req.query.odds;
-    let gameid = Number(req.query.gameid);
-    const payout = Number(req.query.payout);
-    const count = Number(req.query.count);
-    // if (theLastHash == hash || gameid <= lastGameId) {
-    //     log(gameid, hash.cyan.bgBlue, Number(odds) < 2 ? odds.red.bgWhite : odds.green.bgWhite, `${new Date().toLocaleString()}`.white);
-    //     hashOK = true;
-    //     if (payout == undefined) {
-    //         res.end();
-    //         return;
-    //     }
-    // }
-    io.emit('refresh', hash);
-    // console.clear();
-    log(gameid, hash.blue.bgGreen, Number(odds) < 2 ? odds.red.bgWhite : odds.green.bgWhite, `${new Date().toLocaleString()}`.white.bgBlue);
-    res.send('ok');
-    return;
-    if (calcNow) {
-        res.end();
-        return;
+        WHERE time >= ? AND time < ?
+        ORDER BY time DESC;
+    `,
+    {
+      replacements: [selectedDate, nextDate],
     }
-    if (hash == undefined) {
-        res.end();
-        return;
-    }
-    if (theLastHash == '') {
-        initPayouts(req.query.hash);
-    }
-    else {
-        getPayouts(req.query.hash);
-    }
+  );
 
-    if (payout == undefined || count == undefined) {
-        res.end();
-        return;
-    }
+  const result = ips.map((item) => {
+    const ip = item.ip;
+    const type = item.type;
+    const ipHistory = histories[0].filter((row) => row.ip == ip);
 
-    const checkpoint = [
-        [1, 1, 0, 5],
-        [payout * 1.5, 1, 15, 15],
-        [payout * 3, 2, 35, 30],
-        [payout * 4, 2, 20, 15],
-        [payout * 4.5, 3, 15, 10],
-        [payout * 5, 4, 10, 5],
-        [payout * 10, 9, 15, 10],
-        [payout * 11, 10, 10, 5],
-    ]
-    let i = 1;
-    let rcount = 0;
-    let till = 0;
-    let weight = 0;
-    for (let ckn = 0; ckn < checkpoint.length; ckn++) {
-        till = Math.round(checkpoint[ckn][0]);
-        for (; i < till; i++) {
-            if (payoutArray[i] >= payout) {
-                rcount++;
-            }
-        }
+    let maxUsage = 0;
 
-        if (rcount < checkpoint[ckn][1]) {
-            weight += checkpoint[ckn][2];
-        } else if (rcount == checkpoint[ckn][1]) {
-            weight += checkpoint[ckn][3];
-        } else {
-        }
-    }
-    let remain = Math.max(5 - rcount + (weight - 60) / 10, count);
-    log(payout, count, rcount, remain, weight);
-    if (isNaN(remain)) {
-        remain = theLastHash;
-    }
-    if (weight > 60) {
-        res.send(`${remain}`);
-    } else {
-        res.send('0');
-    }
+    ipHistory.forEach((ele) => {
+      let dataUsage = ele.dataUsage;
+      const isMb = dataUsage && dataUsage.includes("MB");
+      dataUsage = !dataUsage
+        ? 0
+        : dataUsage.replace("GB", "").replace("MB", "");
+      if (isMb) {
+        dataUsage /= 1024;
+      }
+      if (maxUsage < Number(dataUsage)) {
+        maxUsage = Number(dataUsage);
+      }
+    });
 
-    // for (let i = 0; i < multiples.length; i++) {
-    //     calcStatistic2(multiples[i][0], multiples[i][1], multiples[i][4]);
-    //     for (let j = 3; j >= 0; j--) {
-    //         calcStatistic1(multiples[i][0], j, multiples[i][3]);
-    //     }
-    //     analysis(multiples[i][0], multiples[i][1], multiples[i][2]);
-    //     showAsGraph(multiples[i][0], stdColumns, true);
-    // }
-    // for (let j = 3; j >= 0; j--) {
-    //     calcStatistic1(2, j, 0, true);
-    // }
-    // showAsGraph(2, 5000, true, '$', '_', false)
-    // for (let j = 3; j >= 0; j--) {
-    //     calcStatistic1(10, j, 0, true);
-    // }
-    // analysis(2, 0, true);
-    // showAsGraph(2, 1000, true, '$', '_', false)
-    // log(payoutArray);
-    if (!hashOK) {
-        log("\n");
-        log("\n");
-        log("BC.CRASH GAME IS FAKE!!!!!!!!!!!!!!!!!".red);
-        log("\n");
-        log("\n");
-        // res.send("BC.CRASH GAME IS FAKE");
-    }
-    return;
-    const inputData = [];
-    const outputData = [];
-    for (let i = 1; i <= 100; i++) {
-        const ida = [];
-        for (let j = 0; j < mlSize; j++) {
-            ida.push(payoutArray[i + j]);
-        }
-        inputData.push(ida);
-        outputData.push([payoutArray[i - 1]]);
-    }
-    const trainingData = tf.tensor2d(inputData);
-    const trainingLabels = tf.tensor2d(outputData);
-    // await trainModel(predictModel, trainingData, trainingLabels);
-    await predictModel.fit(trainingData, trainingLabels, { epochs: mlSize });
+    return {
+      ip: ip,
+      dataUsage: maxUsage,
+    };
+  });
 
-    const ida = [];
-    for (let j = 0; j < mlSize; j++) {
-        ida.push(payoutArray[j]);
-    }
-    const prediction = predictModel.predict(tf.tensor2d([ida])); // The rest of your 32 variables go here
-    const oarray = prediction.dataSync();
-    console.log(oarray);
-    // saveModel(predictModel, file_model);
-})
-
-process.stdout.on('resize', function () {
-    console.clear();
-    stdColumns = process.stdout.columns;
+  res.send(result);
 });
 
-(async () => {
-    if (existsSync(file_model)) {
-        predictModel = await loadModel(file_model);
+app.get("/api/today-report", async (req, res) => {
+  const { date } = req.query;
+  // const selectedDate = new Date(date);
+  // Convert the input date to Tokyo timezone and get the start of the day
+  const selectedDate = moment.tz(date, TOKYO_TIMEZONE).startOf("day").toDate();
+  const nextDate = moment
+    .tz(selectedDate, TOKYO_TIMEZONE)
+    .add(1, "day")
+    .toDate();
+  // Retrieve the history data for the selected date in Tokyo timezone
+  const histories = await sequelize.query(
+    `
+        SELECT *
+        FROM Histories
+        WHERE time >= ? AND time < ?
+        ORDER BY time DESC;
+    `,
+    {
+      replacements: [selectedDate, nextDate],
     }
-})();
+  );
+
+  // Retrieve the list of IPs
+  const ips = await IpList.findAll({});
+
+  const result = ips.map((item) => {
+    const ip = item.ip;
+
+    // Filter history records for the current IP
+    const ipHistory = histories[0].filter((row) => row.ip == ip);
+
+    // Get the dataUsage values, converting to float and filtering out zeroes
+    const dataUsages = ipHistory
+      .map((row) => parseFloat(row.dataUsage || 0))
+      .filter((usage) => usage > 0);
+
+    // Compute the max and min dataUsage, ignoring zeroes
+    const maxDataUsage = Math.max(...dataUsages);
+    const minDataUsage = Math.min(...dataUsages);
+
+    // Calculate the usage difference
+    const usage = (maxDataUsage - minDataUsage).toFixed(2);
+
+    return {
+      ip: ip,
+      usage: usage,
+    };
+  });
+
+  res.send(result);
+});
+
+app.get("/histories", async (req, res) => {
+  try {
+    const { date } = req.query;
+
+    // Convert the input date to Tokyo timezone and get the start of the day
+    const selectedDate = moment
+      .tz(date, TOKYO_TIMEZONE)
+      .startOf("day")
+      .toDate();
+    const nextDate = moment
+      .tz(selectedDate, TOKYO_TIMEZONE)
+      .add(1, "day")
+      .toDate();
+
+    // Get the current date and time in Tokyo timezone
+    const currentTokyoDate = moment.tz(TOKYO_TIMEZONE);
+
+    // Check if the selected date is today in Tokyo timezone
+    const isToday = moment
+      .tz(date, TOKYO_TIMEZONE)
+      .isSame(currentTokyoDate, "day");
+
+    let startDate, endDate;
+
+    if (isToday) {
+      // If the selected date is today, get the previous 24 hours of data
+      startDate = moment.tz(TOKYO_TIMEZONE).subtract(24, "hours").toDate();
+      endDate = currentTokyoDate.toDate();
+    } else {
+      // If the selected date is not today, use the start and end of the selected day
+      startDate = selectedDate;
+      endDate = nextDate;
+    }
+
+    // Retrieve the history data for the selected date or previous 24 hours
+    const histories = await sequelize.query(
+      `
+      SELECT *
+      FROM Histories
+      WHERE time >= ? AND time < ?
+      ORDER BY time DESC;
+    `,
+      {
+        replacements: [startDate, endDate],
+      }
+    );
+
+    // console.log(histories)
+
+    const ips = await IpList.findAll({});
+    let result = sortByIp(ips)
+      // .sort((a, b) => a.ip - b.ip)
+      .map((item) => {
+        const ip = item.ip;
+        const ipHistory = histories[0].filter((row) => row.ip == ip);
+        // console.log(ipHistory)
+        let imsi;
+        let data = ipHistory.map((history) => {
+          if (!imsi && history.imsi) {
+            imsi = history.imsi;
+          }
+
+          return {
+            ip: history.ip,
+            type: history.type ? history.type : "",
+            strength: history.strength ? history.strength : "",
+            dataUsage: history.dataUsage
+              ? Number(history.dataUsage).toFixed(2)
+              : "",
+            time: history.time,
+          };
+        });
+        // const times = data[0].map(ele => ele.time);
+
+        data = data.map((ele) => {
+          // if()
+          return {
+            ...ele,
+            imsi: imsi,
+          };
+        });
+
+        return data;
+      });
+
+    const times = result[0].map((ele) => ele.time);
+    // const updatedTime = moment(times)
+    const dateType = "YYYY-MM-DD HH:mm";
+    console.log(times.length, ">>>>>>>>>");
+    result = result.map((item) => {
+      return times.map((time) => {
+        const updatedTime = moment(time).format(dateType)
+        let ele = item.find((e) => {
+          // e.time == time
+          const eTime = moment(e.time).format(dateType)
+          return updatedTime == eTime
+        });
+        ele = ele ? ele : { ip: item.ip };
+        return ele;
+      });
+    });
+
+    return res.send(result);
+  } catch (error) {
+    console.log(error);
+    res.send([]);
+  }
+});
+
+function sortByIp(arr) {
+  return arr.sort((a, b) => {
+    // Split the IPs into their components and convert them to numbers
+    let aParts = a.ip.split(".").map(Number);
+    let bParts = b.ip.split(".").map(Number);
+
+    // Compare each part of the IP address
+    for (let i = 0; i < aParts.length; i++) {
+      if (aParts[i] < bParts[i]) return -1;
+      if (aParts[i] > bParts[i]) return 1;
+    }
+
+    return 0; // IPs are equal
+  });
+}
+
+var oldHash;
+app.get("/add/hash", async (req, res) => {
+  const hash = req.query.hash;
+  if (hash === oldHash) {
+    res.send("adsf");
+    return;
+  }
+  oldHash = hash;
+  let odds = req.query.odds;
+  let gameid = Number(req.query.gameid);
+  io.emit("refresh", hash);
+  // console.clear();
+  log(
+    gameid,
+    hash.blue.bgGreen,
+    Number(odds) < 2 ? odds.red.bgWhite : odds.green.bgWhite,
+    `${new Date().toLocaleString()}`.white.bgBlue
+  );
+  res.send("ok");
+  return;
+});
+
+// (async () => {
+//   const ips = await IpList.findAll({});
+//   // console.log(ips)
+//   const selectedDate = moment
+//     .tz("2024-06-14", TOKYO_TIMEZONE)
+//     .startOf("day")
+//     .toDate();
+//   const nextDate = moment
+//     .tz(selectedDate, TOKYO_TIMEZONE)
+//     .add(1, "day")
+//     .toDate();
+//   // Retrieve the history data for the selected date in Tokyo timezone
+//   const histories = await sequelize.query(
+//     `
+//         SELECT *
+//         FROM Histories
+//         WHERE time >= ? AND time < ?
+//         ORDER BY time DESC;
+//     `,
+//     {
+//       replacements: [selectedDate, nextDate],
+//     }
+//   );
+
+//   console.log(histories);
+// })();
